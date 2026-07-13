@@ -1,7 +1,7 @@
 # KodingYuk Accounts Web
 
 Web register/login dan OpenID Connect Provider untuk
-`https://accounts.kodingyuk.id`. Service ini melayani akun publik KodingYuk,
+`https://account.kodingyuk.id`. Service ini melayani akun publik KodingYuk,
 sementara data akun, consent, student link, dan audit log disimpan oleh addon
 Odoo pada repository
 [`KodingYukDev/sso_odoo_it`](https://github.com/KodingYukDev/sso_odoo_it).
@@ -38,7 +38,7 @@ Production membutuhkan:
 - Addon `kodingyuk_accounts` yang sudah terpasang di Odoo 17.
 - Secret API yang sama dengan `accounts.api_key` di Odoo.
 - Redis persisten.
-- HTTPS pada exact origin `accounts.kodingyuk.id`.
+- HTTPS pada exact origin `account.kodingyuk.id`.
 - Private signing JWKS yang disimpan di secret manager.
 - Minimal dua cookie signing key.
 - URL Ketentuan Layanan dan Kebijakan Privasi.

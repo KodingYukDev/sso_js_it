@@ -13,7 +13,7 @@ test('development configuration has safe parsed defaults', () => {
 test('production requires persistent Redis and signing keys', () => {
   assert.throws(() => loadConfig({
     NODE_ENV: 'production',
-    PUBLIC_ORIGIN: 'https://accounts.kodingyuk.id',
+    PUBLIC_ORIGIN: 'https://account.kodingyuk.id',
     ODOO_ACCOUNTS_API_KEY: 'secret',
     COOKIE_KEYS: `${'a'.repeat(32)},${'b'.repeat(32)}`,
   }), /REDIS_URL/);

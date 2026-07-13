@@ -2,7 +2,7 @@
 
 ## Kontrak OIDC
 
-- Issuer: `https://accounts.kodingyuk.id`
+- Issuer: `https://account.kodingyuk.id`
 - Discovery: `/.well-known/openid-configuration`
 - Flow: Authorization Code
 - PKCE: wajib `S256`

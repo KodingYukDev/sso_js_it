@@ -5,7 +5,7 @@ import { sameOrigin } from '../src/app.js';
 import { escapeHtml } from '../src/views.js';
 
 function invoke(origin) {
-  const middleware = sameOrigin('https://accounts.kodingyuk.id');
+  const middleware = sameOrigin('https://account.kodingyuk.id');
   let status;
   let sent;
   let nextCalled = false;
@@ -20,7 +20,7 @@ test('HTML output escapes untrusted values', () => {
 });
 
 test('POST origin guard accepts only the configured origin', () => {
-  assert.equal(invoke('https://accounts.kodingyuk.id/register').nextCalled, true);
+  assert.equal(invoke('https://account.kodingyuk.id/register').nextCalled, true);
   assert.equal(invoke('https://evil.example').status, 403);
   assert.equal(invoke(undefined).status, 403);
 });

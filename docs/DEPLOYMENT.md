@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-  P[Produk publik] -->|OIDC + PKCE| A[accounts.kodingyuk.id]
+  P[Produk publik] -->|OIDC + PKCE| A[account.kodingyuk.id]
   A -->|API key, jaringan privat| O[Odoo internal]
   A --> R[(Redis sesi/token)]
   O --> K[(ky.account)]
@@ -47,7 +47,7 @@ Authorization Code + PKCE dan `token_endpoint_auth_method=none`.
 
 Salin `.env.example` menjadi `.env`, lalu isi:
 
-- `PUBLIC_ORIGIN=https://accounts.kodingyuk.id`
+- `PUBLIC_ORIGIN=https://account.kodingyuk.id`
 - `ODOO_BASE_URL` ke origin Odoo (tanpa path `/web`)
 - `ODOO_ACCOUNTS_API_KEY` sama dengan parameter Odoo
 - `REDIS_URL=redis://redis:6379/0` untuk Compose
@@ -67,9 +67,9 @@ docker compose up -d --build
 
 Pasang reverse proxy HTTPS ke `127.0.0.1:3000`, kemudian cek:
 
-- `https://accounts.kodingyuk.id/health`
-- `https://accounts.kodingyuk.id/.well-known/openid-configuration`
-- issuer harus persis `https://accounts.kodingyuk.id`
+- `https://account.kodingyuk.id/health`
+- `https://account.kodingyuk.id/.well-known/openid-configuration`
+- issuer harus persis `https://account.kodingyuk.id`
 - `code_challenge_methods_supported` harus memuat `S256`
 
 ## 4. Backup dan rollback

@@ -1,5 +1,6 @@
 import express from 'express';
 import { randomUUID } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 
@@ -17,11 +18,26 @@ function noStore(_req, res, next) {
 export function sameOrigin(publicOrigin) {
   return (req, res, next) => {
     const source = req.get('origin') || req.get('referer');
-    if (!source) return res.status(403).send('Missing request origin');
+    const reject = (message) => {
+      const response = res.status(403);
+      if (typeof response.type === 'function') {
+        return response.type('html').send(messageView({
+          title: 'Permintaan tidak valid',
+          message,
+          success: false,
+          actionHref: '/',
+          actionLabel: 'Kembali ke Account',
+        }));
+      }
+      return response.send(message);
+    };
+    if (!source) return reject('Origin permintaan tidak ditemukan. Muat ulang halaman lalu coba kembali.');
     try {
-      if (new URL(source).origin !== publicOrigin) return res.status(403).send('Invalid request origin');
+      if (new URL(source).origin !== publicOrigin) {
+        return reject('Domain halaman tidak sesuai dengan konfigurasi Account. Muat ulang dari alamat resmi.');
+      }
     } catch {
-      return res.status(403).send('Invalid request origin');
+      return reject('Origin permintaan tidak valid. Muat ulang halaman lalu coba kembali.');
     }
     return next();
   };
@@ -66,6 +82,10 @@ export function createApp({ config, odoo, provider, logger = console }) {
     },
     referrerPolicy: { policy: 'same-origin' },
   }));
+  app.use('/assets', express.static(
+    fileURLToPath(new URL('../public/assets', import.meta.url)),
+    { immutable: true, maxAge: '30d', fallthrough: false },
+  ));
   const formParser = express.urlencoded({ extended: false, limit: '32kb' });
   app.use(rateLimit({ windowMs: 60_000, limit: 180, standardHeaders: 'draft-8', legacyHeaders: false }));
 
