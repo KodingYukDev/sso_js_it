@@ -202,7 +202,12 @@ export function createApp({ config, odoo, provider, logger = console }) {
           grant.addResourceScope(indicator, scopes.join(' '));
         }
       }
-      return provider.interactionFinished(req, res, { consent: { grantId: await grant.save() } });
+      return provider.interactionFinished(
+        req,
+        res,
+        { consent: { grantId: await grant.save() } },
+        { mergeWithLastSubmission: false },
+      );
     } catch (error) { return next(error); }
   });
 
