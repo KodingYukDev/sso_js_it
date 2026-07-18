@@ -49,14 +49,31 @@ function attachAuditEvents(provider, odoo, logger) {
   }
 }
 
+async function autoSubmitLogoutSource(ctx, form) {
+  const confirmedForm = form.replace('</form>', '<input type="hidden" name="logout" value="yes"/></form>');
+  ctx.type = 'html';
+  ctx.body = `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><title>Keluar</title></head><body>${confirmedForm}<script>document.getElementById('op.logoutForm').submit();</script><noscript><button type="submit" form="op.logoutForm" name="logout" value="yes">Lanjut keluar</button></noscript></body></html>`;
+}
+
+async function postLogoutSuccessSource(ctx) {
+  ctx.type = 'html';
+  ctx.body = '<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><title>Sudah Keluar</title></head><body>Anda sudah keluar dari KodingYuk Account.</body></html>';
+}
+
 export async function loadClients(odoo, fallbackClients, logger = console) {
+  let registryClients = [];
   try {
-    const clients = await odoo.clients();
-    if (clients.length) return clients;
+    registryClients = await odoo.clients();
   } catch (error) {
     logger.warn(`OIDC client registry in Odoo unavailable: ${error.message}`);
   }
-  if (fallbackClients.length) return fallbackClients;
+
+  const byClientId = new Map();
+  for (const client of fallbackClients) byClientId.set(client.client_id, client);
+  for (const client of registryClients) byClientId.set(client.client_id, client);
+
+  const clients = [...byClientId.values()];
+  if (clients.length) return clients;
   throw new Error('No active OIDC clients are configured in Odoo or OIDC_CLIENTS_JSON');
 }
 
@@ -86,7 +103,11 @@ export async function createProvider({ config, odoo, adapter, logger = console }
     features: {
       devInteractions: { enabled: false },
       revocation: { enabled: true },
-      rpInitiatedLogout: { enabled: true },
+      rpInitiatedLogout: {
+        enabled: true,
+        logoutSource: autoSubmitLogoutSource,
+        postLogoutSuccessSource,
+      },
     },
     interactions: { url: (_ctx, interaction) => `/interaction/${interaction.uid}` },
     findAccount: async (_ctx, subject) => {

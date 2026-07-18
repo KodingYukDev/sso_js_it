@@ -24,6 +24,7 @@ test('authorization code + PKCE completes without exposing an Odoo session', asy
     clients: async () => [{
       client_id: 'integration-test', client_name: 'Integration Test',
       redirect_uris: [callback], response_types: ['code'],
+      post_logout_redirect_uris: ['http://localhost:4000/logout'],
       grant_types: ['authorization_code'], token_endpoint_auth_method: 'none',
     }],
     authenticate: async () => ({ account }),
@@ -122,4 +123,27 @@ test('authorization code + PKCE completes without exposing an Odoo session', asy
   assert.equal('session_id' in tokens, false);
   assert.ok(audits.some((entry) => entry.event === 'oidc.authorization_succeeded'));
   assert.ok(audits.some((entry) => entry.event === 'oidc.token_issued'));
+
+  const logoutUrl = new URL('/oauth/logout', origin);
+  logoutUrl.search = new URLSearchParams({
+    client_id: 'integration-test',
+    id_token_hint: tokens.id_token,
+    post_logout_redirect_uri: 'http://localhost:4000/logout',
+  });
+  response = await request(logoutUrl);
+  assert.equal(response.status, 200);
+  const logoutHtml = await response.text();
+  assert.match(logoutHtml, /name="logout" value="yes"/);
+  const logoutAction = logoutHtml.match(/<form id="op\.logoutForm" method="post" action="([^"]+)"/)?.[1];
+  const xsrf = logoutHtml.match(/name="xsrf" value="([^"]+)"/)?.[1];
+  assert.ok(logoutAction);
+  assert.ok(xsrf);
+
+  response = await request(logoutAction, {
+    method: 'POST',
+    headers: { Origin: origin, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ xsrf, logout: 'yes' }),
+  });
+  assert.ok([302, 303].includes(response.status));
+  assert.equal(response.headers.get('location'), 'http://localhost:4000/logout');
 });
