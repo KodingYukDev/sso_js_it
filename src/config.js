@@ -13,6 +13,9 @@ const schema = z.object({
   POLICY_VERSION: z.string().min(1).default('2026-07-13'),
   TERMS_URL: z.string().url().default('https://kodingyuk.id/terms'),
   PRIVACY_URL: z.string().url().default('https://kodingyuk.id/privacy'),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_REDIRECT_URI: z.string().url().optional(),
   TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(1),
 });
 
@@ -33,6 +36,9 @@ export function loadConfig(env = process.env) {
     cookieKeys: parsed.COOKIE_KEYS.split(',').map((key) => key.trim()).filter(Boolean),
     fallbackClients: parseJson(parsed.OIDC_CLIENTS_JSON, 'OIDC_CLIENTS_JSON'),
     jwks: parsed.OIDC_JWKS ? parseJson(parsed.OIDC_JWKS, 'OIDC_JWKS') : null,
+    googleEnabled: Boolean(parsed.GOOGLE_CLIENT_ID && parsed.GOOGLE_CLIENT_SECRET),
+    googleRedirectUri:
+      parsed.GOOGLE_REDIRECT_URI ?? `${new URL(parsed.PUBLIC_ORIGIN).origin}/auth/google/callback`,
   };
 
   if (!Array.isArray(config.fallbackClients)) {

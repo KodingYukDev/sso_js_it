@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { sameOrigin } from '../src/app.js';
-import { escapeHtml } from '../src/views.js';
+import { escapeHtml, loginView } from '../src/views.js';
 
 function invoke(origin) {
   const middleware = sameOrigin('https://account.kodingyuk.id');
@@ -23,4 +23,9 @@ test('POST origin guard accepts only the configured origin', () => {
   assert.equal(invoke('https://account.kodingyuk.id/register').nextCalled, true);
   assert.equal(invoke('https://evil.example').status, 403);
   assert.equal(invoke(undefined).status, 403);
+});
+
+test('login view exposes Google SSO only when configured', () => {
+  assert.match(loginView({ uid: 'abc', clientName: 'Demo', googleEnabled: true }), /Masuk dengan Google/);
+  assert.doesNotMatch(loginView({ uid: 'abc', clientName: 'Demo', googleEnabled: false }), /Masuk dengan Google/);
 });

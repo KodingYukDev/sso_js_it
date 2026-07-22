@@ -60,6 +60,11 @@ export class OdooAccountsClient {
       method: 'POST', body: { identifier, password, _audit: audit },
     });
   }
+  socialLogin(data, audit = {}) {
+    return this.request('/accounts/v1/social/login', {
+      method: 'POST', body: { ...data, _audit: audit },
+    });
+  }
   claims(subjectUuid) {
     return this.request('/accounts/v1/account/claims', { method: 'POST', body: { subject_uuid: subjectUuid } });
   }

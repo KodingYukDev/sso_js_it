@@ -6,6 +6,15 @@ import helmet from 'helmet';
 
 import { OdooApiError } from './odoo-client.js';
 import {
+  buildGoogleAuthorizationUrl,
+  clearGoogleStateCookie,
+  exchangeGoogleCode,
+  isGoogleConfigured,
+  readGoogleStateCookie,
+  setGoogleStateCookie,
+  verifyGoogleIdToken,
+} from './google-auth.js';
+import {
   consentView, homeView, loginView, registerView, successView,
   messageView, requestLinkView, tokenConfirmationView,
 } from './views.js';
@@ -148,7 +157,12 @@ export function createApp({ config, odoo, provider, logger = console }) {
       const client = await provider.Client.find(details.params.client_id);
       const clientName = client?.clientName || details.params.client_id;
       if (details.prompt.name === 'login') {
-        return res.type('html').send(loginView({ uid: details.uid, clientName }));
+        return res.type('html').send(loginView({
+          uid: details.uid,
+          clientName,
+          error: req.query.error || '',
+          googleEnabled: isGoogleConfigured(config),
+        }));
       }
       if (details.prompt.name === 'consent') {
         return res.type('html').send(consentView({ uid: details.uid, clientName, details: details.prompt.details }));
@@ -184,7 +198,71 @@ export function createApp({ config, odoo, provider, logger = console }) {
       return res.status(error.status === 401 ? 401 : 503).type('html').send(loginView({
         uid: req.params.uid, clientName, error: friendlyError(error), identifier: req.body.identifier,
         needsVerification: error.code === 'email_not_verified',
+        googleEnabled: isGoogleConfigured(config),
       }));
+    }
+  });
+
+  app.get('/interaction/:uid/google', noStore, authLimiter, async (req, res, next) => {
+    try {
+      if (!isGoogleConfigured(config)) {
+        return res.status(503).type('html').send(messageView({
+          title: 'Google SSO belum aktif',
+          message: 'Konfigurasi Google OAuth belum lengkap di layanan Account.',
+          success: false,
+          actionHref: `/interaction/${encodeURIComponent(req.params.uid)}`,
+          actionLabel: 'Kembali ke login',
+        }));
+      }
+      const details = await provider.interactionDetails(req, res);
+      if (details.prompt.name !== 'login') return res.status(400).send('Invalid interaction');
+      const { url, cookie } = buildGoogleAuthorizationUrl({ config, uid: details.uid });
+      setGoogleStateCookie(res, config, cookie);
+      return res.redirect(303, url.toString());
+    } catch (error) { return next(error); }
+  });
+
+  app.get('/auth/google/callback', noStore, authLimiter, async (req, res, next) => {
+    const stateCookie = readGoogleStateCookie(req, config);
+    clearGoogleStateCookie(res, config);
+    try {
+      if (!stateCookie || stateCookie.state !== req.query.state) {
+        return res.status(400).type('html').send(messageView({
+          title: 'Google SSO gagal',
+          message: 'Session Google tidak valid atau sudah kedaluwarsa. Mulai ulang dari aplikasi asal.',
+          success: false,
+          actionHref: '/',
+          actionLabel: 'Kembali',
+        }));
+      }
+      if (req.query.error) {
+        return res.redirect(303, `/interaction/${encodeURIComponent(stateCookie.uid)}?error=${encodeURIComponent(req.query.error)}`);
+      }
+      const tokens = await exchangeGoogleCode(config, req.query.code || '');
+      const claims = await verifyGoogleIdToken(config, tokens.id_token, stateCookie.nonce);
+      const { account } = await odoo.socialLogin({
+        provider: 'google',
+        provider_subject: claims.sub,
+        provider_email: claims.email,
+        email_verified: claims.email_verified === true,
+        name: claims.name || claims.email,
+        picture: claims.picture || '',
+        locale: claims.locale || 'id_ID',
+      }, auditContext(req));
+
+      req.url = `/interaction/${encodeURIComponent(stateCookie.uid)}`;
+      req.originalUrl = req.url;
+      return provider.interactionFinished(
+        req,
+        res,
+        { login: { accountId: account.sub } },
+        { mergeWithLastSubmission: false },
+      );
+    } catch (error) {
+      if (error instanceof OdooApiError) {
+        return res.redirect(303, `/interaction/${encodeURIComponent(stateCookie?.uid || '')}?error=${encodeURIComponent(friendlyError(error))}`);
+      }
+      return next(error);
     }
   });
 

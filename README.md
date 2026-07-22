@@ -10,6 +10,7 @@ Odoo pada repository
 
 - Register dan verifikasi email.
 - Login serta lupa/reset password.
+- Google SSO upstream dengan akun tetap dipetakan ke `ky.account`.
 - OpenID Connect Authorization Code + PKCE S256.
 - Session dan token persistence menggunakan Redis.
 - Consent serta optional claim kode siswa.
@@ -42,6 +43,8 @@ Production membutuhkan:
 - Private signing JWKS yang disimpan di secret manager.
 - Minimal dua cookie signing key.
 - URL Ketentuan Layanan dan Kebijakan Privasi.
+- Google OAuth client dengan redirect URI `https://account.kodingyuk.id/auth/google/callback`
+  bila Google SSO diaktifkan.
 
 Generate signing key sekali lalu simpan output sebagai secret `OIDC_JWKS`:
 

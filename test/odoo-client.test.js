@@ -36,3 +36,29 @@ test('Odoo API errors remain typed and preserve public error code', async () => 
     return true;
   });
 });
+
+test('Odoo client sends social login payload to the server endpoint', async () => {
+  let request;
+  const client = new OdooAccountsClient({
+    baseUrl: 'https://odoo.example.test', apiKey: 'server-key',
+    fetchImpl: async (url, options) => {
+      request = { url, options };
+      return new Response(JSON.stringify({ success: true, account: { sub: 'google-sub' } }), {
+        status: 200, headers: { 'content-type': 'application/json' },
+      });
+    },
+  });
+  const result = await client.socialLogin({
+    provider: 'google',
+    provider_subject: 'google-user-1',
+    provider_email: 'trainer@example.test',
+    email_verified: true,
+    name: 'Trainer Google',
+  }, { request_id: 'req-1' });
+  const body = JSON.parse(request.options.body);
+  assert.equal(result.account.sub, 'google-sub');
+  assert.equal(request.url, 'https://odoo.example.test/accounts/v1/social/login');
+  assert.equal(body.provider, 'google');
+  assert.equal(body._audit.request_id, 'req-1');
+  assert.equal(request.options.body.includes('server-key'), false);
+});
