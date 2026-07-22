@@ -58,6 +58,8 @@ function friendlyError(error) {
     if (error.code === 'email_not_verified') return 'Email belum diverifikasi. Periksa inbox atau kirim ulang link verifikasi.';
     if (error.code === 'invalid_token') return 'Link sudah tidak berlaku atau telah digunakan.';
     if (error.code === 'already_exists') return 'Email atau username sudah terdaftar.';
+    if (error.code === 'account_unavailable') return 'Akun belum dapat digunakan. Hubungi admin jika akun seharusnya aktif.';
+    if (error.code === 'invalid_payload') return 'Data SSO tidak lengkap atau tidak valid. Mulai ulang dari aplikasi asal.';
     if (error.code === 'claim_failed') return 'Kode siswa belum dapat ditautkan. Akun tetap bisa digunakan.';
     return error.message;
   }

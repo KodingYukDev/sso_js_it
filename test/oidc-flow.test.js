@@ -124,6 +124,23 @@ test('authorization code + PKCE completes without exposing an Odoo session', asy
   assert.ok(audits.some((entry) => entry.event === 'oidc.authorization_succeeded'));
   assert.ok(audits.some((entry) => entry.event === 'oidc.token_issued'));
 
+  const nextVerifier = base64url(randomBytes(48));
+  const nextChallenge = base64url(createHash('sha256').update(nextVerifier).digest());
+  const nextAuthorize = new URL('/oauth/authorize', origin);
+  nextAuthorize.search = new URLSearchParams({
+    client_id: 'integration-test', redirect_uri: callback, response_type: 'code',
+    scope: 'openid profile email student.basic', state: 'next-state', nonce: 'next-nonce',
+    code_challenge: nextChallenge, code_challenge_method: 'S256',
+  });
+
+  response = await request(nextAuthorize);
+  assert.ok([302, 303].includes(response.status));
+  location = response.headers.get('location');
+  const nextCallbackUrl = new URL(location);
+  assert.equal(nextCallbackUrl.origin + nextCallbackUrl.pathname, callback);
+  assert.equal(nextCallbackUrl.searchParams.get('state'), 'next-state');
+  assert.ok(nextCallbackUrl.searchParams.get('code'));
+
   const logoutUrl = new URL('/oauth/logout', origin);
   logoutUrl.search = new URLSearchParams({
     client_id: 'integration-test',
