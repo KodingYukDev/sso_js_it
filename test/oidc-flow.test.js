@@ -164,3 +164,64 @@ test('authorization code + PKCE completes without exposing an Odoo session', asy
   assert.ok([302, 303].includes(response.status));
   assert.equal(response.headers.get('location'), 'http://localhost:4000/logout');
 });
+
+test('consent confirmation recreates missing grants and normalizes scopes', async (t) => {
+  const port = 33000 + Math.floor(Math.random() * 1000);
+  const origin = `http://localhost:${port}`;
+  const grants = [];
+  class TestGrant {
+    constructor({ accountId, clientId }) {
+      this.accountId = accountId;
+      this.clientId = clientId;
+      this.oidcScopes = [];
+      this.oidcClaims = [];
+      this.resourceScopes = [];
+    }
+
+    addOIDCScope(scope) { this.oidcScopes.push(scope); }
+    addOIDCClaims(claims) { this.oidcClaims.push(...claims); }
+    addResourceScope(indicator, scope) { this.resourceScopes.push([indicator, scope]); }
+    async save() { grants.push(this); return 'new-grant-id'; }
+    static async find() { return null; }
+  }
+  const config = loadConfig({
+    NODE_ENV: 'test', PORT: String(port), PUBLIC_ORIGIN: origin,
+    ODOO_BASE_URL: 'http://odoo.test', ODOO_ACCOUNTS_API_KEY: 'test-key',
+    COOKIE_KEYS: 'test-cookie-key-one,test-cookie-key-two', OIDC_CLIENTS_JSON: '[]',
+  });
+  const logger = { warn() {}, error() {}, log() {} };
+  const provider = {
+    Grant: TestGrant,
+    interactionDetails: async () => ({
+      prompt: {
+        name: 'consent',
+        details: {
+          missingOIDCScope: new Set(['profile', 'email']),
+          missingOIDCClaims: 'email_verified',
+          missingResourceScopes: { 'https://api.example.test': 'student.basic' },
+        },
+      },
+      grantId: 'stale-grant-id',
+      session: { accountId: '4c321528-d54e-44c0-b455-4a45b039f1f0' },
+      params: { client_id: 'integration-test' },
+    }),
+    interactionFinished: async (_req, res, result) => res.status(303).json(result),
+    callback: () => (_req, res) => res.status(404).end(),
+  };
+  const odoo = {};
+  const app = createApp({ config, odoo, provider, logger });
+  const server = app.listen(port);
+  await once(server, 'listening');
+  t.after(() => server.close());
+
+  const response = await fetch(new URL('/interaction/test-uid/confirm', origin), {
+    redirect: 'manual',
+    method: 'POST',
+    headers: { Origin: origin, 'Content-Type': 'application/x-www-form-urlencoded' },
+  });
+  assert.equal(response.status, 303);
+  assert.equal(grants.length, 1);
+  assert.deepEqual(grants[0].oidcScopes, ['profile email']);
+  assert.deepEqual(grants[0].oidcClaims, ['email_verified']);
+  assert.deepEqual(grants[0].resourceScopes, [['https://api.example.test', 'student.basic']]);
+});

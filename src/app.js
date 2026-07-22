@@ -70,6 +70,13 @@ function valuesFrom(body) {
   return Object.fromEntries(['name', 'email', 'username', 'student_code'].map((key) => [key, body[key] || '']));
 }
 
+function listFrom(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (value instanceof Set) return [...value];
+  return [value];
+}
+
 function auditContext(req, clientId = '') {
   return {
     request_id: req.get('x-request-id') || randomUUID(),
@@ -272,14 +279,20 @@ export function createApp({ config, odoo, provider, logger = console }) {
     try {
       const { prompt, grantId, session, params } = await provider.interactionDetails(req, res);
       if (prompt.name !== 'consent') return res.status(400).send('Invalid interaction');
-      let grant = grantId ? await provider.Grant.find(grantId) : new provider.Grant({
-        accountId: session.accountId, clientId: params.client_id,
-      });
-      if (prompt.details.missingOIDCScope) grant.addOIDCScope(prompt.details.missingOIDCScope.join(' '));
-      if (prompt.details.missingOIDCClaims) grant.addOIDCClaims(prompt.details.missingOIDCClaims);
+      let grant = grantId ? await provider.Grant.find(grantId) : null;
+      if (!grant) {
+        grant = new provider.Grant({
+          accountId: session.accountId, clientId: params.client_id,
+        });
+      }
+      const missingOIDCScope = listFrom(prompt.details.missingOIDCScope);
+      const missingOIDCClaims = listFrom(prompt.details.missingOIDCClaims);
+      if (missingOIDCScope.length) grant.addOIDCScope(missingOIDCScope.join(' '));
+      if (missingOIDCClaims.length) grant.addOIDCClaims(missingOIDCClaims);
       if (prompt.details.missingResourceScopes) {
         for (const [indicator, scopes] of Object.entries(prompt.details.missingResourceScopes)) {
-          grant.addResourceScope(indicator, scopes.join(' '));
+          const scopeList = listFrom(scopes);
+          if (scopeList.length) grant.addResourceScope(indicator, scopeList.join(' '));
         }
       }
       return provider.interactionFinished(
