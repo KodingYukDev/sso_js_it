@@ -271,6 +271,10 @@ export function createApp({ config, odoo, provider, logger = console }) {
       if (error instanceof OdooApiError) {
         return res.redirect(303, `/interaction/${encodeURIComponent(stateCookie?.uid || '')}?error=${encodeURIComponent(friendlyError(error))}`);
       }
+      if (stateCookie?.uid) {
+        const message = error instanceof Error ? error.message : 'Google SSO gagal. Silakan coba lagi.';
+        return res.redirect(303, `/interaction/${encodeURIComponent(stateCookie.uid)}?error=${encodeURIComponent(message)}`);
+      }
       return next(error);
     }
   });
