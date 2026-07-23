@@ -152,6 +152,7 @@ test('authorization code + PKCE completes without exposing an Odoo session', asy
   assert.match(response.headers.get('content-security-policy'), /script-src 'unsafe-inline'/);
   const logoutHtml = await response.text();
   assert.match(logoutHtml, /name="logout" value="yes"/);
+  assert.equal(logoutHtml.match(/name="logout"/g)?.length, 1);
   assert.match(logoutHtml, /Lanjut keluar/);
   const logoutAction = logoutHtml.match(/<form id="op\.logoutForm" method="post" action="([^"]+)"/)?.[1];
   const xsrf = logoutHtml.match(/name="xsrf" value="([^"]+)"/)?.[1];
