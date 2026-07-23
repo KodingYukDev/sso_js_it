@@ -89,8 +89,8 @@ export async function createProvider({ config, odoo, adapter, logger = console }
     jwks,
     cookies: {
       keys: config.cookieKeys,
-      long: { signed: true, httpOnly: true, sameSite: 'lax', secure: config.NODE_ENV === 'production' },
-      short: { signed: true, httpOnly: true, sameSite: 'lax', secure: config.NODE_ENV === 'production' },
+      long: { signed: true, httpOnly: true, sameSite: 'lax', secure: config.productionLike },
+      short: { signed: true, httpOnly: true, sameSite: 'lax', secure: config.productionLike },
     },
     claims: {
       openid: ['sub'],

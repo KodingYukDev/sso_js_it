@@ -114,7 +114,13 @@ export function createApp({ config, odoo, provider, logger = console }) {
   const verifyOrigin = sameOrigin(config.publicOrigin);
 
   app.get('/', (_req, res) => res.type('html').send(homeView()));
-  app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'accounts-web' }));
+  app.get('/health', (_req, res) => res.json({
+    status: 'ok',
+    service: 'accounts-web',
+    node_env: config.NODE_ENV,
+    production_like: config.productionLike,
+    storage: config.REDIS_URL ? 'redis' : 'memory',
+  }));
 
   app.get('/register', noStore, async (req, res, next) => {
     try {
@@ -280,8 +286,10 @@ export function createApp({ config, odoo, provider, logger = console }) {
   });
 
   app.post('/interaction/:uid/confirm', noStore, verifyOrigin, formParser, async (req, res, next) => {
+    let details;
     try {
-      const { prompt, grantId, session, params } = await provider.interactionDetails(req, res);
+      details = await provider.interactionDetails(req, res);
+      const { prompt, grantId, session, params } = details;
       if (prompt.name !== 'consent') return res.status(400).send('Invalid interaction');
       let grant = grantId ? await provider.Grant.find(grantId) : null;
       if (!grant) {
@@ -305,7 +313,30 @@ export function createApp({ config, odoo, provider, logger = console }) {
         { consent: { grantId: await grant.save() } },
         { mergeWithLastSubmission: false },
       );
-    } catch (error) { return next(error); }
+    } catch (error) {
+      const requestId = req.get('x-request-id') || randomUUID();
+      logger.warn(`OIDC consent confirmation failed uid=${req.params.uid} request_id=${requestId}: ${error.message}`);
+      if (!details) {
+        return res.status(410).type('html').send(messageView({
+          title: 'Sesi masuk kedaluwarsa',
+          message: 'Sesi persetujuan sudah tidak valid. Mulai ulang proses masuk dari aplikasi asal.',
+          success: false,
+          actionHref: '/',
+          actionLabel: 'Kembali ke Account',
+        }));
+      }
+      try {
+        const client = await provider.Client.find(details.params.client_id);
+        return res.status(503).type('html').send(consentView({
+          uid: details.uid,
+          clientName: client?.clientName || details.params.client_id,
+          details: details.prompt.details,
+          error: 'Persetujuan belum dapat diproses. Muat ulang halaman lalu coba lagi.',
+        }));
+      } catch {
+        return next(error);
+      }
+    }
   });
 
   app.post('/interaction/:uid/abort', noStore, verifyOrigin, formParser, async (req, res, next) => {

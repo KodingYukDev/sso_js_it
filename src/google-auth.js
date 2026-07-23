@@ -42,7 +42,7 @@ function cookieOptions(config) {
   return {
     httpOnly: true,
     sameSite: 'lax',
-    secure: config.NODE_ENV === 'production',
+    secure: config.productionLike,
     path: '/auth/google/callback',
     maxAge: STATE_TTL_MS,
   };

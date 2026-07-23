@@ -227,3 +227,32 @@ test('consent confirmation recreates missing grants and normalizes scopes', asyn
   assert.deepEqual(grants[0].oidcClaims, ['email_verified']);
   assert.deepEqual(grants[0].resourceScopes, [['https://api.example.test', 'student.basic']]);
 });
+
+test('expired consent interaction returns a restart page', async (t) => {
+  const port = 34000 + Math.floor(Math.random() * 1000);
+  const origin = `http://localhost:${port}`;
+  const config = loadConfig({
+    NODE_ENV: 'test', PORT: String(port), PUBLIC_ORIGIN: origin,
+    ODOO_BASE_URL: 'http://odoo.test', ODOO_ACCOUNTS_API_KEY: 'test-key',
+    COOKIE_KEYS: 'test-cookie-key-one,test-cookie-key-two', OIDC_CLIENTS_JSON: '[]',
+  });
+  const provider = {
+    interactionDetails: async () => { throw new Error('interaction session not found'); },
+    callback: () => (_req, res) => res.status(404).end(),
+  };
+  const logger = { warn() {}, error() {}, log() {} };
+  const app = createApp({ config, odoo: {}, provider, logger });
+  const server = app.listen(port);
+  await once(server, 'listening');
+  t.after(() => server.close());
+
+  const response = await fetch(new URL('/interaction/expired/confirm', origin), {
+    redirect: 'manual',
+    method: 'POST',
+    headers: { Origin: origin, 'Content-Type': 'application/x-www-form-urlencoded' },
+  });
+  assert.equal(response.status, 410);
+  const html = await response.text();
+  assert.match(html, /Sesi masuk kedaluwarsa/);
+  assert.doesNotMatch(html, /Proses masuk tidak dapat dilanjutkan/);
+});

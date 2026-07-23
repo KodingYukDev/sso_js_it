@@ -45,7 +45,7 @@ Authorization Code + PKCE dan `token_endpoint_auth_method=none`.
 
 ## 3. Konfigurasi web
 
-Salin `.env.example` menjadi `.env`, lalu isi:
+Salin `.env.production.example` menjadi `.env`, lalu isi:
 
 - `PUBLIC_ORIGIN=https://account.kodingyuk.id`
 - `ODOO_BASE_URL` ke origin Odoo (tanpa path `/web`)

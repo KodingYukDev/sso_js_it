@@ -55,7 +55,7 @@ npm run generate:jwks
 Deploy menggunakan Docker Compose:
 
 ```powershell
-Copy-Item .env.example .env
+Copy-Item .env.production.example .env
 docker compose up -d --build
 ```
 

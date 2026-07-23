@@ -29,9 +29,14 @@ function parseJson(value, label) {
 
 export function loadConfig(env = process.env) {
   const parsed = schema.parse(env);
+  const publicUrl = new URL(parsed.PUBLIC_ORIGIN);
+  const publicHostname = publicUrl.hostname;
+  const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(publicHostname);
+  const productionLike = parsed.NODE_ENV === 'production' || !isLocalhost;
   const config = {
     ...parsed,
-    publicOrigin: new URL(parsed.PUBLIC_ORIGIN).origin,
+    publicOrigin: publicUrl.origin,
+    productionLike,
     odooBaseUrl: parsed.ODOO_BASE_URL.replace(/\/$/, ''),
     cookieKeys: parsed.COOKIE_KEYS.split(',').map((key) => key.trim()).filter(Boolean),
     fallbackClients: parseJson(parsed.OIDC_CLIENTS_JSON, 'OIDC_CLIENTS_JSON'),
@@ -44,14 +49,14 @@ export function loadConfig(env = process.env) {
   if (!Array.isArray(config.fallbackClients)) {
     throw new Error('OIDC_CLIENTS_JSON must be a JSON array');
   }
-  if (config.NODE_ENV === 'production') {
-    if (!config.REDIS_URL) throw new Error('REDIS_URL is required in production');
-    if (!config.jwks?.keys?.length) throw new Error('OIDC_JWKS with private keys is required in production');
+  if (config.productionLike) {
+    if (!config.REDIS_URL) throw new Error('REDIS_URL is required for non-local Accounts origins');
+    if (!config.jwks?.keys?.length) throw new Error('OIDC_JWKS with private keys is required for non-local Accounts origins');
     if (config.cookieKeys.length < 2 || config.cookieKeys.some((key) => key.length < 32)) {
-      throw new Error('Production needs at least two COOKIE_KEYS of 32 characters or more');
+      throw new Error('Non-local Accounts origins need at least two COOKIE_KEYS of 32 characters or more');
     }
     if (config.publicOrigin.startsWith('http://')) {
-      throw new Error('PUBLIC_ORIGIN must use HTTPS in production');
+      throw new Error('PUBLIC_ORIGIN must use HTTPS for non-local Accounts origins');
     }
   }
   return config;
