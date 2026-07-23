@@ -285,7 +285,7 @@ export function createApp({ config, odoo, provider, logger = console }) {
     }
   });
 
-  app.post('/interaction/:uid/confirm', noStore, verifyOrigin, formParser, async (req, res, next) => {
+  app.post('/interaction/:uid/confirm', noStore, verifyOrigin, formParser, async (req, res) => {
     let details;
     try {
       details = await provider.interactionDetails(req, res);
@@ -333,8 +333,15 @@ export function createApp({ config, odoo, provider, logger = console }) {
           details: details.prompt.details,
           error: 'Persetujuan belum dapat diproses. Muat ulang halaman lalu coba lagi.',
         }));
-      } catch {
-        return next(error);
+      } catch (renderError) {
+        logger.warn(`OIDC consent error page failed uid=${req.params.uid} request_id=${requestId}: ${renderError.message}`);
+        return res.status(503).type('html').send(messageView({
+          title: 'Persetujuan belum diproses',
+          message: 'Muat ulang halaman persetujuan atau mulai ulang proses masuk dari aplikasi asal.',
+          success: false,
+          actionHref: '/',
+          actionLabel: 'Kembali ke Account',
+        }));
       }
     }
   });

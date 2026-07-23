@@ -256,3 +256,46 @@ test('expired consent interaction returns a restart page', async (t) => {
   assert.match(html, /Sesi masuk kedaluwarsa/);
   assert.doesNotMatch(html, /Proses masuk tidak dapat dilanjutkan/);
 });
+
+test('consent confirmation does not fall back to generic text when error rendering fails', async (t) => {
+  const port = 35000 + Math.floor(Math.random() * 1000);
+  const origin = `http://localhost:${port}`;
+  const config = loadConfig({
+    NODE_ENV: 'test', PORT: String(port), PUBLIC_ORIGIN: origin,
+    ODOO_BASE_URL: 'http://odoo.test', ODOO_ACCOUNTS_API_KEY: 'test-key',
+    COOKIE_KEYS: 'test-cookie-key-one,test-cookie-key-two', OIDC_CLIENTS_JSON: '[]',
+  });
+  class BrokenGrant {
+    static async find() { return null; }
+    addOIDCScope() {}
+    addOIDCClaims() {}
+    addResourceScope() {}
+    async save() { throw new Error('grant storage unavailable'); }
+  }
+  const provider = {
+    interactionDetails: async () => ({
+      uid: 'broken',
+      prompt: { name: 'consent', details: { missingOIDCScope: ['email'] } },
+      session: { accountId: 'account-1' },
+      params: { client_id: 'broken-client' },
+    }),
+    Client: { find: async () => { throw new Error('client lookup unavailable'); } },
+    Grant: BrokenGrant,
+    callback: () => (_req, res) => res.status(404).end(),
+  };
+  const logger = { warn() {}, error() {}, log() {} };
+  const app = createApp({ config, odoo: {}, provider, logger });
+  const server = app.listen(port);
+  await once(server, 'listening');
+  t.after(() => server.close());
+
+  const response = await fetch(new URL('/interaction/broken/confirm', origin), {
+    redirect: 'manual',
+    method: 'POST',
+    headers: { Origin: origin, 'Content-Type': 'application/x-www-form-urlencoded' },
+  });
+  assert.equal(response.status, 503);
+  const html = await response.text();
+  assert.match(html, /Persetujuan belum diproses/);
+  assert.doesNotMatch(html, /Proses masuk tidak dapat dilanjutkan/);
+});
