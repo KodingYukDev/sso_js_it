@@ -94,7 +94,7 @@ export function createApp({ config, odoo, provider, logger = console }) {
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
-        defaultSrc: ["'none'"], styleSrc: ["'unsafe-inline'"], formAction: ["'self'"],
+        defaultSrc: ["'none'"], styleSrc: ["'unsafe-inline'"], formAction: ["'self'", 'https:'],
         frameAncestors: ["'none'"], baseUri: ["'none'"], imgSrc: ["'self'", 'data:'],
       },
     },

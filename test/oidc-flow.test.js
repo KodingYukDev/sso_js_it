@@ -75,6 +75,7 @@ test('authorization code + PKCE completes without exposing an Odoo session', asy
 
   response = await request(location);
   assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-security-policy'), /form-action 'self' https:/);
   assert.match(await response.text(), /Selamat datang kembali/);
 
   response = await request(`${location}/login`, {
@@ -92,6 +93,7 @@ test('authorization code + PKCE completes without exposing an Odoo session', asy
 
   response = await request(location);
   assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-security-policy'), /form-action 'self' https:/);
   assert.match(await response.text(), /Persetujuan akses/);
 
   response = await request(`${location}/confirm`, {
